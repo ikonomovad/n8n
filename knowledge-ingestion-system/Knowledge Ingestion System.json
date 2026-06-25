@@ -1,0 +1,588 @@
+{
+  "name": "Knowledge Ingestion System",
+  "nodes": [
+    {
+      "parameters": {
+        "model": "text-embedding-3-large",
+        "options": {
+          "dimensions": 1024
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        496
+      ],
+      "id": "87cb3a1d-0699-47f7-8f96-a1c7f7f1ff8c",
+      "name": "Embeddings OpenAI",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "fileName",
+                "value": "={{ $json.name }}"
+              },
+              {
+                "name": "fileId",
+                "value": "={{ $json.id }}"
+              },
+              {
+                "name": "mimeType",
+                "value": "={{ $json.mimeType }}"
+              },
+              {
+                "name": "source",
+                "value": "google_drive"
+              },
+              {
+                "name": "ingestedAt",
+                "value": "={{ $now.toISO() }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        -784,
+        496
+      ],
+      "id": "8dd4c02f-27af-44df-8306-5c48fdb78015",
+      "name": "Default Data Loader",
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chunkSize": 600,
+        "chunkOverlap": 60,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        672
+      ],
+      "id": "a7450c99-f5e4-4c7b-9652-c6935a0adef5",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2080,
+        256
+      ],
+      "id": "8cfdf6a0-f2fc-4b67-836c-abb1a27cfbba",
+      "name": "Start"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "returnAll": true,
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "YOUR_FOLDER_ID",
+            "mode": "list",
+            "cachedResultName": "AI-KB",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_FOLDER_ID"
+          },
+          "whatToSearch": "files",
+          "includeTrashed": false
+        },
+        "options": {
+          "fields": [
+            "id",
+            "mimeType",
+            "name"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1872,
+        256
+      ],
+      "id": "5f6ccc8d-bbc0-4813-a911-bfcf8bf14d83",
+      "name": "List Files",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1664,
+        256
+      ],
+      "id": "5746531e-6be1-47d0-973c-b83e2898acf8",
+      "name": "Loop Files"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "08134437-dba3-49b4-9337-1d50b41a5d4d",
+              "leftValue": "={{ $json.mimeType }}",
+              "rightValue": "application\\/pdf|text\\/plain|text\\/markdown",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1424,
+        256
+      ],
+      "id": "8efcab1f-4216-4f33-affa-62fcf4ea659c",
+      "name": "Filter File Types"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1200,
+        240
+      ],
+      "id": "97aed3b7-6a42-449c-a68c-f94fbed1d947",
+      "name": "Download File",
+      "retryOnFail": true,
+      "notesInFlow": false,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Drive account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "knowledge-ingestion-system",
+          "mode": "list",
+          "cachedResultName": "knowledge-ingestion-system"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        -960,
+        240
+      ],
+      "id": "9c3a86ec-d7fd-490d-b3c2-916338a8b8c8",
+      "name": "Embed and Upsert",
+      "credentials": {
+        "pineconeApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst first = items[0].json;\n\n// check if error came through\nif (first.error) {\n  return [{\n    json: {\n      fileId: first.fileId || 'unknown',\n      fileName: first.fileName || 'unknown',\n      ingestedAt: new Date().toISOString(),\n      chunkCount: 0,\n      status: 'error',\n      errorMessage: first.error.message || 'unknown error'\n    }\n  }];\n}\n\nconst metadata = first.metadata;\nreturn [{\n  json: {\n    fileId: metadata.fileId,\n    fileName: metadata.fileName,\n    ingestedAt: metadata.ingestedAt,\n    chunkCount: items.length,\n    status: 'success',\n    errorMessage: ''\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        240
+      ],
+      "id": "bf641d5d-6228-4a42-86e3-317e4a029853",
+      "name": "Build Log Entry"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Knowledge Ingestion System Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json.fileId }}",
+            "FiILE NAME": "={{ $json.fileName }}",
+            "CHUNK COUNT": "={{ $json.chunkCount }}",
+            "STATUS": "={{ $json.status }}",
+            "INGESTED AT": "={{ $json.ingestedAt }}",
+            "ERROR MESSAGE": "={{ $json.errorMessage }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FiILE NAME",
+              "displayName": "FiILE NAME",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "CHUNK COUNT",
+              "displayName": "CHUNK COUNT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "INGESTED AT",
+              "displayName": "INGESTED AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ERROR MESSAGE",
+              "displayName": "ERROR MESSAGE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1456,
+        464
+      ],
+      "id": "d0ffe333-53cb-4c61-8d73-8df0ba8b9f4b",
+      "name": "Log to Sheet",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    fileId: $json.id,\n    fileName: $json.name,\n    ingestedAt: new Date().toISOString(),\n    chunkCount: 0,\n    status: 'skipped',\n    errorMessage: 'unsupported file type'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        496
+      ],
+      "id": "6e00651f-b8f1-41c2-a9e1-80dc99e3a3cb",
+      "name": "Build Skip Entry"
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_ADMIN_EMAIL",
+        "subject": "RAG Ingestion Run Completed",
+        "emailType": "text",
+        "message": "Ingestion run finished. Check the log sheet for results.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1200,
+        64
+      ],
+      "id": "0a2c0477-7d17-4c20-b917-8d493a7946eb",
+      "name": "Notify Admin",
+      "webhookId": "0a8d87e2-4d4c-4679-b616-d04e7755d6fc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -1424,
+        64
+      ],
+      "id": "dcf4619a-0184-4150-90f8-0b66d68cf5a2",
+      "name": "Aggregate Done"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Embed and Upsert",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Embed and Upsert",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "List Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Files": {
+      "main": [
+        [
+          {
+            "node": "Loop Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Files": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Filter File Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter File Types": {
+      "main": [
+        [
+          {
+            "node": "Download File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Skip Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download File": {
+      "main": [
+        [
+          {
+            "node": "Embed and Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed and Upsert": {
+      "main": [
+        [
+          {
+            "node": "Build Log Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Log Entry": {
+      "main": [
+        [
+          {
+            "node": "Log to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Skip Entry": {
+      "main": [
+        [
+          {
+            "node": "Log to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Done": {
+      "main": [
+        [
+          {
+            "node": "Notify Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e389c869-36bd-4fd6-915e-019d28b03244",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "id": "QOfEHqJ5Siah5JbU",
+  "tags": []
+}
