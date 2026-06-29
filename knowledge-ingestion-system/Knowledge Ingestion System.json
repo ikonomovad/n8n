@@ -28,6 +28,7 @@
     },
     {
       "parameters": {
+        "dataType": "binary",
         "textSplittingMode": "custom",
         "options": {
           "metadata": {
