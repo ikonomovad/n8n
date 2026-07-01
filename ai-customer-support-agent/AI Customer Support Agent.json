@@ -1,0 +1,1476 @@
+{
+  "name": "AI Customer Support Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SUPPORT_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Support System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SUPPORT_SPREADSHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1818443080,
+          "mode": "list",
+          "cachedResultName": "Form Responses 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SUPPORT_SPREADSHEET_ID/edit#gid=1818443080"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f4a34676-1145-4b4d-87db-82fb90d7d209",
+      "name": "Form Responses Trigger",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\n\nconst now = new Date();\nconst pad = (n) => String(n).padStart(2, '0');\n\nconst ticket_id = `TKT-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${Date.now().toString().slice(-4)}`;\n\nconst created_at = now.toISOString();\n\nreturn {\n  ticket_id,\n  created_at,\n  full_name: row['Full Name']?.trim() || '',\n  email: row['Email Address']?.trim().toLowerCase() || '',\n  subject: row['Subject']?.trim() || '',\n  message: row['Message']?.trim() || '',\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "4f308baf-7158-4390-821e-2925ddaa2ae2",
+      "name": "Normalize Input"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_CUSTOMERS_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Customers",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_CUSTOMERS_SPREADSHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_CUSTOMERS_SPREADSHEET_ID/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "=email",
+              "lookupValue": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        416,
+        0
+      ],
+      "id": "11256777-43db-4c2f-b4a5-709ce0aa96c1",
+      "name": "Customer Lookup",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ticket = $('Normalize Input').first().json;\nconst items = $input.all();\nconst customer = items.length ? items[0].json : null;\n\nif (!customer || !customer.customer_id) {\n  return [{\n    json: {\n      ...ticket,\n      customer_found: false,\n      customer_id: null,\n      plan: null,\n      account_status: null,\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...ticket,\n    customer_found: true,\n    customer_id: customer.customer_id,\n    plan: customer.plan,\n    account_status: customer.account_status,\n    preferred_language: customer.preferred_language,\n    notes: customer.notes,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "8b2c1221-2fbb-48c2-a91a-70eab8a95ba6",
+      "name": "Merge Customer Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c970ae69-3dfd-4b90-8609-d2c66d3c26a8",
+              "leftValue": "={{ $json.customer_found }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        832,
+        0
+      ],
+      "id": "85a6be3c-6589-4d67-9152-be84e30ccdae",
+      "name": "Customer Found?"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SUPPORT_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Support System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SUPPORT_SPREADSHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 728242339,
+          "mode": "list",
+          "cachedResultName": "Tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SUPPORT_SPREADSHEET_ID/edit#gid=728242339"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $json.ticket_id }}",
+            "created_at": "={{ $json.created_at }}",
+            "full_name": "={{ $json.full_name }}",
+            "email": "={{ $json.email }}",
+            "subject": "={{ $json.subject }}",
+            "message": "={{ $json.message }}",
+            "status": "open",
+            "customer_id": "={{ $json.customer_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requires_human",
+              "displayName": "requires_human",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "intent",
+              "displayName": "intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_draft",
+              "displayName": "ai_draft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "quality_approved",
+              "displayName": "quality_approved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resolved_at",
+              "displayName": "resolved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "escalated_at",
+              "displayName": "escalated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1040,
+        -96
+      ],
+      "id": "14170bf8-e3ee-4f1c-8a45-bab45dc27efa",
+      "name": "Create Ticket Row",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"input\": \"{{ $json.message }}\",\n  \"model\": \"text-embedding-3-large\",\n  \"dimensions\": 1024\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1248,
+        -80
+      ],
+      "id": "22e4e6b4-55a1-4602-89b4-7b7ce7e9b406",
+      "name": "Embed Message",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const matches = $input.first().json.matches;\n\nconst chunks = matches.map(m => m.metadata.text).join('\\n\\n---\\n\\n');\n\nreturn {\n  ...$('Merge Customer Data').first().json,\n  rag_chunks: chunks\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        -80
+      ],
+      "id": "e134b2e5-729e-4fe2-bb96-1ed6ffe6c962",
+      "name": "Extract RAG Chunks"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-5.4-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a customer support ticket routing system.\n\nYou must analyze the user message AND any provided context from the knowledge base.\n\nYour job is to:\n1. Classify the ticket into a category\n2. Identify the user intent in a short phrase\n3. Estimate priority\n4. Decide whether a human agent is required\n5. Provide confidence in your classification\n\n---\n\nCategories:\n- billing: payments, invoices, refunds, subscriptions, charges\n- technical: bugs, errors, downtime, API issues, not working features\n- account: login issues, password reset, access, hacked accounts\n- general: questions, unclear requests, feedback, other\n\n---\n\nPriority rules:\n- high: payment issues, account lockouts, system not working, angry or urgent users\n- medium: feature problems, partial failures, unclear technical issues\n- low: general questions, informational requests, non-urgent issues\n\n---\n\nConfidence definition:\n- 0.9–1.0: clear intent AND strong supporting knowledge base context\n- 0.7–0.9: clear intent but minor ambiguity or partial support in context\n- 0.4–0.7: weak or incomplete information in knowledge base\n- 0.0–0.4: unclear intent OR insufficient/no supporting knowledge base context\n\n---\n\nHUMAN ESCALATION RULES (requires_human = true if ANY apply):\n\n1. ANSWERABILITY CHECK (MOST IMPORTANT):\n- If the knowledge base context does NOT contain relevant information that can help answer the user’s question\n→ set requires_human = true\n→ set confidence < 0.4\n→ do NOT assume or infer missing information\n\n2. LOW OR MISSING CONTEXT:\n- knowledge base does not confirm or support the topic\n\n3. CONFUSING OR AMBIGUOUS REQUEST:\n- user intent is unclear or multi-interpretable\n\n4. HIGH-RISK AREAS:\n- billing or account issues with any uncertainty\n- login / access / security issues\n- angry, frustrated, or repeated complaints\n\n5. URGENCY:\n- system outage, account lockout, or time-sensitive problems\n\n---\n\nIMPORTANT RULES:\n- If you are unsure, prefer escalating to a human.\n- Do NOT guess or infer missing information from general knowledge.\n- Pinecone context is authoritative. If it does not support the answer → escalate.\n- Always prioritize safety and correctness over automation.\n\n---\n\nReturn ONLY valid JSON matching the schema."
+            },
+            {
+              "content": "=Customer: {{ $json.full_name }}\nPlan: {{ $json.plan }}\nMessage: {{ $json.message }}\n\nKnowledge Base Context:\n{{ $json.rag_chunks }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "store": false,
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "schema": "{\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"category\": {\n      \"type\": \"string\",\n      \"enum\": [\"billing\", \"technical\", \"account\", \"general\"],\n      \"description\": \"High-level classification of the user request\"\n    },\n    \"priority\": {\n      \"type\": \"string\",\n      \"enum\": [\"low\", \"medium\", \"high\"],\n      \"description\": \"Urgency of the issue based on user impact\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"minimum\": 0,\n      \"maximum\": 1,\n      \"description\": \"Model confidence in BOTH category and intent classification based on available context (0 = uncertain, 1 = fully certain)\"\n    },\n    \"requires_human\": {\n      \"type\": \"boolean\",\n      \"description\": \"True if the issue should be handled by a human due to uncertainty, missing context, or sensitivity\"\n    },\n    \"intent\": {\n      \"type\": \"string\",\n      \"description\": \"Short phrase (max 6–10 words) describing the user's goal\"\n    }\n  },\n  \"required\": [\n    \"category\",\n    \"priority\",\n    \"confidence\",\n    \"requires_human\",\n    \"intent\"\n  ]\n}",
+              "strict": true
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        1872,
+        -80
+      ],
+      "id": "575c0ff8-3833-4c82-8669-f8b623b6369d",
+      "name": "Router LLM",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output[0].content[0].text;\nconst parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n\nreturn {\n  category: parsed.category,\n  priority: parsed.priority,\n  confidence: parsed.confidence,\n  requires_human: parsed.requires_human,\n  intent: parsed.intent\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        -80
+      ],
+      "id": "40548429-df28-460c-a2d9-2d15cdadf3b8",
+      "name": "Parse Router Response"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-5.4-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a professional customer support agent.\n\nYour task is to write the final response that will be sent directly to the customer.\n\nYou will receive:\n- The customer's message\n- Relevant knowledge base context (may be partial)\n- Customer profile information\n\n---\n\nCORE PRINCIPLE:\nUse the knowledge base as the ONLY source of truth for factual information.\n\n---\n\nRULES:\n\n1. Role:\n- Write as a real human support agent speaking directly to the customer.\n- Be friendly, professional, and concise.\n\n---\n\n2. Knowledge base usage:\n- Only use information explicitly supported by the knowledge base context.\n- Do NOT guess, infer, or add missing information.\n\n---\n\n3. STRICT LIMITATIONS:\n- Never invent features, policies, troubleshooting steps, prices, links, or guarantees.\n- Never include assumptions not present in the knowledge base.\n\n---\n\n4. NO INTERNAL OR SYSTEM MENTIONS:\n- Never mention:\n  - knowledge base\n  - documentation\n  - retrieved context\n  - internal systems\n  - how the answer was generated\n\n---\n\n5. LANGUAGE RULE (CRITICAL):\n- The entire response MUST be written in the customer's preferred language if it is provided.\n- Do NOT mix languages.\n- If no preferred language is provided, use English only.\n\n---\n\n6. NO REFUSAL OR LIMITATION LANGUAGE:\n- Do NOT say:\n  - \"I don't have information\"\n  - \"I cannot find\"\n  - \"The documentation does not\"\n  - \"I don't know\"\n  - \"I cannot access\"\n\nThe response must ALWAYS remain a helpful customer support reply.\n\n---\n\n7. NO ESCALATION STATEMENTS:\n- Do NOT mention escalation, support tickets, or internal handling.\n- If information is missing, simply do not include unsupported details.\n\n---\n\n8. PERSONALIZATION:\n- Use customer’s first name if available.\n- If VIP or special handling notes exist, adjust tone to be warmer and more attentive (without mentioning it).\n\n---\n\n9. FORMAT:\n- Be clear, natural, and human-like.\n- Use numbered steps only if helpful.\n- Keep responses concise.\n\n---\n\n10. SIGN-OFF:\nAlways end with:\n\nBest regards,\nSupport Team\n\n---\n\nOUTPUT FORMAT:\n\nReturn ONLY valid JSON."
+            },
+            {
+              "content": "=Customer Name: {{ $('Extract RAG Chunks').item.json.full_name }}\nPlan: {{ $('Extract RAG Chunks').item.json.plan }}\nAccount Status: {{ $('Extract RAG Chunks').item.json.account_status }}\nPreferred Language: {{ $('Extract RAG Chunks').item.json.preferred_language }}\nCustomer Notes: {{ $('Extract RAG Chunks').item.json.notes }}\n\nCategory: {{ $json.category }}\nIntent: {{ $json.intent }}\nEscalation Flag: {{ $json.requires_human }}\n\nCustomer Message:\n{{ $('Extract RAG Chunks').item.json.message }}\n\nKnowledge Base Context:\n{{ $('Extract RAG Chunks').item.json.rag_chunks }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "store": false,
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "schema": "{\n    \"type\": \"object\",\n    \"additionalProperties\": false,\n    \"properties\": {\n      \"answer\": {\n        \"type\": \"string\"\n      }\n    },\n    \"required\": [\"answer\"]\n  }"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        2656,
+        -96
+      ],
+      "id": "5d705040-6193-44a0-af87-18e0bd3bd1e4",
+      "name": "Answer Generator",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-5.4-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a strict quality assurance reviewer for a customer support system.\n\nYour job is to decide whether a generated support response is safe, accurate, and ready to send to the customer.\n\nYou will be given:\n- Customer message\n- Knowledge base context\n- Generated assistant response\n\n---\n\nEvaluation rules:\n\n1. Hallucination check:\n- The response must NOT include any information, claims, steps, policies, or assumptions not supported by the knowledge base context.\n- If it contains any invented or assumed information → reject.\n\n---\n\n2. Grounding check:\n- All factual claims and instructions must be directly supported by the knowledge base context.\n- Generic or made-up troubleshooting steps are NOT allowed.\n\n---\n\n3. Intent match:\n- The response must directly address the user's request and clearly attempt to resolve it.\n\n---\n\n4. Tone check:\n- Must be professional, friendly, and human-like.\n- Must NOT mention knowledge base, documentation, retrieval systems, or internal processes.\n\n---\n\n5. Completeness check:\n- The response must be useful and sufficiently address the user’s question.\n\n---\n\n6. Refusal / missing information detection (CRITICAL):\n- The response must NOT contain refusal, limitation, or inability language.\n\nReject if the response includes phrases like:\n- \"I don't have information\"\n- \"I cannot find\"\n- \"The documentation does not\"\n- \"I don't know\"\n- \"I cannot access\"\n- \"no information available\"\n- \"unable to provide\"\n\nThe assistant must ALWAYS respond as a helpful support agent, even if escalation is needed. Refusal-style responses are NOT allowed.\n\n---\n\n7. Unsupported fallback detection:\n- If the response is overly generic, vague, or not grounded in the knowledge base context → reject.\n- Example of bad responses:\n  - \"Please contact support\"\n  - \"Try again later\"\n  - Generic troubleshooting not present in knowledge base\n\n---\n\nDecision:\n\n- \"approve\" → response is safe, grounded, helpful, and ready to send\n- \"reject\" → response is hallucinated, unsupported, refusal-based, incomplete, or low quality\n\n---\n\nReturn ONLY valid JSON."
+            },
+            {
+              "content": "=Customer message:  {{ $('Extract RAG Chunks').item.json.message }}\n---\nKnowledge base contextt: {{ $('Extract RAG Chunks').item.json.rag_chunks }}\n---\nGenerated assistant response: {{ $json.answer }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "store": false,
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "schema": "{\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"status\": {\n      \"type\": \"string\",\n      \"enum\": [\"approve\", \"reject\"]\n    },\n    \"reason\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\"status\", \"reason\"]\n}"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        3200,
+        -96
+      ],
+      "id": "a0059f01-3ddf-4c3d-85cb-a514fb5f3600",
+      "name": "Quality Checker",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $input.first().json;\nconst raw = prev.output[0].content[0].text;\nconst parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n\nreturn {\n  qualityStatus: parsed.status,\n  qualityReason: parsed.reason\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3536,
+        -96
+      ],
+      "id": "600a4baf-85cc-4c6c-ad05-89f098dc6a84",
+      "name": "Parse Quality"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $input.first().json;\nconst raw = prev.output[0].content[0].text;\nconst parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n\nreturn {\n  answer: parsed.answer\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2992,
+        -96
+      ],
+      "id": "7b685055-7d17-461a-ab3d-5a90d42a4c7f",
+      "name": "Parse Answer"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1de96d15-7dda-485a-9069-a98662fe858a",
+              "leftValue": "={{ $json.qualityStatus }}",
+              "rightValue": "approve",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3776,
+        -96
+      ],
+      "id": "7b6f9729-06cc-4e66-8a88-2dbe0694a2bf",
+      "name": "Quality Check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bf1123a6-9dd1-4d7b-9b10-4142c34d23ad",
+              "leftValue": "={{ $json.confidence }}",
+              "rightValue": 0.65,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "d4deaa57-afd4-4b06-acc6-bed13595c375",
+              "leftValue": "={{ $json.requires_human }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2432,
+        -80
+      ],
+      "id": "81e792d2-7d2f-4774-a27a-64d522e2d931",
+      "name": "Confidence Check"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=🚨 Support Ticket Escalated! Ticket ID: {{ $('Normalize Input').item.json.ticket_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        3008,
+        240
+      ],
+      "id": "c6edd486-d75d-40bf-8d60-39e9a3bd3619",
+      "name": "Send Escalation Alert",
+      "webhookId": "bf7a1a97-96d0-4531-90b6-453204960842",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SUPPORT_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Support System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SUPPORT_SPREADSHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 728242339,
+          "mode": "list",
+          "cachedResultName": "Tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SUPPORT_SPREADSHEET_ID/edit#gid=728242339"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $('Normalize Input').item.json.ticket_id }}",
+            "status": "rejected",
+            "resolved_at": "=",
+            "quality_approved": "={{ $json.qualityStatus ?? '' }}",
+            "category": "={{ $('Router LLM').item.json.output[0].content[0].text.category ?? '' }}",
+            "priority": "={{ $('Router LLM').item.json.output[0].content[0].text.priority }}",
+            "confidence": "={{ $('Router LLM').item.json.output[0].content[0].text.confidence ?? '' }}",
+            "requires_human": "={{ $('Router LLM').item.json.output[0].content[0].text.requires_human ?? '' }}",
+            "intent": "={{ $('Router LLM').item.json.output[0].content[0].text.intent ?? '' }}",
+            "ai_draft": "={{ $if($node[\"Parse Answer\"].isExecuted, $('Parse Answer').item.json.answer, \"\") }}",
+            "escalated_at": "={{ $now }}"
+          },
+          "matchingColumns": [
+            "ticket_id"
+          ],
+          "schema": [
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requires_human",
+              "displayName": "requires_human",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "intent",
+              "displayName": "intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_draft",
+              "displayName": "ai_draft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "quality_approved",
+              "displayName": "quality_approved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resolved_at",
+              "displayName": "resolved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "escalated_at",
+              "displayName": "escalated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "slack_thread_id",
+              "displayName": "slack_thread_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3216,
+        240
+      ],
+      "id": "579a0075-815a-4045-b0ce-a45714ce4dfe",
+      "name": "Update Ticket Escalated",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SUPPORT_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Support System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SUPPORT_SPREADSHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 728242339,
+          "mode": "list",
+          "cachedResultName": "Tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SUPPORT_SPREADSHEET_ID/edit#gid=728242339"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $('Normalize Input').item.json.ticket_id }}",
+            "status": "resolved",
+            "resolved_at": "={{ $now }}",
+            "quality_approved": "={{ $json.qualityStatus }}",
+            "category": "={{ $('Router LLM').item.json.output[0].content[0].text.category }}",
+            "priority": "={{ $('Router LLM').item.json.output[0].content[0].text.priority }}",
+            "confidence": "={{ $('Router LLM').item.json.output[0].content[0].text.confidence }}",
+            "requires_human": "={{ $('Router LLM').item.json.output[0].content[0].text.requires_human }}",
+            "intent": "={{ $('Router LLM').item.json.output[0].content[0].text.intent }}",
+            "ai_draft": "={{ $('Parse Answer').item.json.answer }}"
+          },
+          "matchingColumns": [
+            "ticket_id"
+          ],
+          "schema": [
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requires_human",
+              "displayName": "requires_human",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "intent",
+              "displayName": "intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_draft",
+              "displayName": "ai_draft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "quality_approved",
+              "displayName": "quality_approved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resolved_at",
+              "displayName": "resolved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "escalated_at",
+              "displayName": "escalated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "slack_thread_id",
+              "displayName": "slack_thread_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4112,
+        -32
+      ],
+      "id": "b0ff76bb-5594-4ce1-b3f2-a0aceff71d5c",
+      "name": "Update Ticket Resolved",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_PINECONE_INDEX_HOST/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "pineconeApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={   \"vector\": {{ JSON.stringify($json.data[0].embedding) }},   \"topK\": 5,   \"includeMetadata\": true }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1456,
+        -80
+      ],
+      "id": "4673ffa1-7c4f-475c-9d60-7c0404d4c955",
+      "name": "Query Pinecone",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "pineconeApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "We couldn't find your account",
+        "message": "=<!DOCTYPE html> <html> <head>   <meta charset=\"UTF-8\">   <title>Support Message</title> </head> <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">      <p>Hi {{ $json.full_name }},</p>    <p>Thank you for reaching out.</p>    <p>     Unfortunately we couldn't find an account associated<br>     with this email address.   </p>    <p>     If you believe this is a mistake please contact us<br>     directly at      <a href=\"mailto:YOUR_SUPPORT_EMAIL\">YOUR_SUPPORT_EMAIL</a>   </p>    <p>Best regards,<br>   Support Team</p>  </body> </html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        96
+      ],
+      "id": "ebc2d512-b1a4-4730-950a-26b3c0dd5a90",
+      "name": "Send Rejection Email",
+      "webhookId": "1adc9b9d-38bf-46ec-b44f-2224f9683cad",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Normalize Input').item.json.email }}",
+        "subject": "=Re: Your support ticket #{{ $('Normalize Input').item.json.ticket_id }}",
+        "emailType": "text",
+        "message": "={{ $('Parse Answer').item.json.answer }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        4112,
+        -240
+      ],
+      "id": "f2076bfa-ffa2-4471-9a81-6454e8079066",
+      "name": "Send Resolution Email",
+      "webhookId": "f4a8e72a-f276-4f3f-b3ca-1fa6de985e8c",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Form Responses Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Customer Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Lookup": {
+      "main": [
+        [
+          {
+            "node": "Merge Customer Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Customer Data": {
+      "main": [
+        [
+          {
+            "node": "Customer Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Found?": {
+      "main": [
+        [
+          {
+            "node": "Create Ticket Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Rejection Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Ticket Row": {
+      "main": [
+        [
+          {
+            "node": "Embed Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Message": {
+      "main": [
+        [
+          {
+            "node": "Query Pinecone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract RAG Chunks": {
+      "main": [
+        [
+          {
+            "node": "Router LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router LLM": {
+      "main": [
+        [
+          {
+            "node": "Parse Router Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Router Response": {
+      "main": [
+        [
+          {
+            "node": "Confidence Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer Generator": {
+      "main": [
+        [
+          {
+            "node": "Parse Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quality Checker": {
+      "main": [
+        [
+          {
+            "node": "Parse Quality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Quality": {
+      "main": [
+        [
+          {
+            "node": "Quality Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Answer": {
+      "main": [
+        [
+          {
+            "node": "Quality Checker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quality Check": {
+      "main": [
+        [
+          {
+            "node": "Send Resolution Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Ticket Resolved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Escalation Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confidence Check": {
+      "main": [
+        [
+          {
+            "node": "Answer Generator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Escalation Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Escalation Alert": {
+      "main": [
+        [
+          {
+            "node": "Update Ticket Escalated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Pinecone": {
+      "main": [
+        [
+          {
+            "node": "Extract RAG Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "4b8de74a-4bd7-4155-94e2-a64b4755484a",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "id": "rrQPfIdOLfRxDRN9",
+  "tags": []
+}
